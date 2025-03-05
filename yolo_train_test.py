@@ -7,7 +7,7 @@ from PIL import Image
 from utils.helper_functions import calculate_iou, calculate_metrics
 
 
-def train_yolo(config_path, model_path="yolo11n.pt", epochs=100, batch_size=16, img_size=640, device=None):
+def yolo_train(config_path, model_path="yolo11n.pt", epochs=100, batch_size=16, img_size=640, device=None):
     """Trains a YOLO model with the specified parameters and returns the Path to the best model's weights"""
     
     model = YOLO(model_path)
@@ -38,7 +38,7 @@ def yolo_inference(model_path, test_json, image_dir, save_results=False):
     """Run YOLO inference on test images and add predicted bounding boxes to test.json"""
 
     model = YOLO(model_path)
-    
+
     with open(test_json, 'r') as f:
         test_data = json.load(f)
     print(f"Running inference on {len(test_data)} test images...")
@@ -74,15 +74,15 @@ def yolo_inference(model_path, test_json, image_dir, save_results=False):
                 entry['bbox_pred'] = [x1, y1, x2, y2]
                 entry['bbox_pred_conf'] = float(conf_values[best_idx])
                 
-                if 'bbox' in entry:
-                    gt_box = entry['bbox']
+                if 'bbox_gt' in entry:
+                    gt_box = entry['bbox_gt']
                     iou = calculate_iou(gt_box, [x1, y1, x2, y2])
-                    entry['bbox_iou'] = iou
+                    entry['bboxes_iou'] = iou
             else:
                 entry['bbox_pred'] = None
                 entry['bbox_pred_conf'] = 0.0
-                if 'bbox' in entry:
-                    entry['bbox_iou'] = 0.0
+                if 'bbox_gt' in entry:
+                    entry['bboxes_iou'] = 0.0
         
         if (i + 1) % 10 == 0 or i == len(test_data) - 1:
             print(f"Processed {i + 1}/{len(test_data)} images")
@@ -122,7 +122,7 @@ def main():
         config_path = os.path.join(src_dir, args.config)
         print(f"Training with config: {config_path}")
         
-        best_model_path = train_yolo(
+        best_model_path = yolo_train(
             config_path,
             model_path=args.model_path,
             epochs=args.epochs,
