@@ -68,8 +68,8 @@ def plot_bounding_boxes(image_folder, json_file, num_images=5):
             image = Image.open(image_path).convert('RGB')
             fig, ax = plt.subplots(figsize=(10, 8))
             ax.imshow(np.array(image))
-            if 'bbox' in item and item['bbox']:
-                x_min, y_min, x_max, y_max = item['bbox']
+            if 'bbox_gt' in item and item['bbox_gt']:
+                x_min, y_min, x_max, y_max = item['bbox_gt']
                 rect = patches.Rectangle((x_min, y_min), x_max-x_min, y_max-y_min, 
                                          linewidth=2, edgecolor='g', facecolor='none')
                 ax.add_patch(rect)
@@ -96,8 +96,8 @@ def plot_keypoints_bbox(image_folder, json_file, num_images=5):
             visible_points = points2D[:, visible_mask]
             plt.scatter(visible_points[0, :], visible_points[1, :], c='r', marker='x', s=40)
 
-            if 'bbox' in item and item['bbox']:
-                x_min, y_min, x_max, y_max = item['bbox']
+            if 'bbox_gt' in item and item['bbox_gt']:
+                x_min, y_min, x_max, y_max = item['bbox_gt']
                 rect = patches.Rectangle((x_min, y_min), x_max-x_min, y_max-y_min, 
                                          linewidth=2, edgecolor='g', facecolor='none')
                 plt.gca().add_patch(rect)
@@ -192,3 +192,52 @@ def calculate_metrics(test_data):
         print(f"AP@0.75: {iou_75:.2f}%")
     else:
         print("\nNo ground truth boxes available for evaluation")
+
+
+def plot_bboxes_comparison(image_folder, json_file, num_images=5):
+    """Comparison plot between ground truth and predicted bounding boxes"""
+
+    data = json.load(open(json_file))
+    valid_data = [item for item in data if 'bbox_gt' in item and 'bbox_pred' in item and item['bbox_pred'] is not None]
+    
+    if len(valid_data) == 0:
+        print("No valid entries found with both ground truth and predictions")
+        return
+    
+    random.shuffle(valid_data)
+    selected_data = valid_data[:num_images]
+    
+    for item in selected_data:
+        image_path = Path(image_folder) / item['filename']
+        try:
+            image = Image.open(image_path).convert('RGB')
+            fig, ax = plt.subplots(figsize=(12, 9))
+            ax.imshow(np.array(image))
+            
+            if 'bbox_gt' in item and item['bbox_gt']:
+                x_min, y_min, x_max, y_max = item['bbox_gt']
+                rect = patches.Rectangle((x_min, y_min), x_max-x_min, y_max-y_min, 
+                                        linewidth=2, edgecolor='g', facecolor='none', label='Ground Truth')
+                ax.add_patch(rect)
+            
+            if 'bbox_pred' in item and item['bbox_pred']:
+                x_min, y_min, x_max, y_max = item['bbox_pred']
+                rect = patches.Rectangle((x_min, y_min), x_max-x_min, y_max-y_min, 
+                                        linewidth=2, edgecolor='r', facecolor='none', label='Prediction')
+                ax.add_patch(rect)
+            
+            confidence = item.get('bbox_pred_conf', 'N/A')
+            iou = item.get('bbox_iou', 'N/A')
+            title = f"{item['filename']}"
+            if isinstance(confidence, (int, float)):
+                title += f"\nConfidence: {confidence:.2f}"
+            if isinstance(iou, (int, float)):
+                title += f", IoU: {iou:.2f}"
+            
+            plt.title(f"{item['filename']}")
+            plt.legend(loc='upper right')
+            plt.tight_layout()
+            plt.show()
+            
+        except FileNotFoundError:
+            print(f"Warning: {item['filename']} not found")
