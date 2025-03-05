@@ -75,7 +75,7 @@ def main():
                 keypoints = keypoints.T
             
             bbox = compute_bounding_box(keypoints, args.margin, IMAGE_WIDTH, IMAGE_HEIGHT)
-            entry['bbox'] = bbox
+            entry['bbox_gt'] = bbox
             
             # Only apply boundary check for visualization
             if args.plot and plot_count < 5:
