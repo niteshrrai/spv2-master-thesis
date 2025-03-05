@@ -57,6 +57,7 @@ def plot_keypoints(image_folder, json_file, num_images=5):
         except FileNotFoundError:
             print(f"Warning: {item['filename']} not found")
 
+
 def plot_bounding_boxes(image_folder, json_file, num_images=5):
     data = json.load(open(json_file))
     random.shuffle(data)
@@ -108,7 +109,6 @@ def plot_keypoints_bbox(image_folder, json_file, num_images=5):
             print(f"Warning: {item['filename']} not found")
 
 
-
 def plot_yolo_bbox(image_folder, label_folder, num_images=5):
     image_folder = Path(image_folder)
     label_folder = Path(label_folder)
@@ -148,3 +148,47 @@ def plot_yolo_bbox(image_folder, label_folder, num_images=5):
         plt.title(f"{image_path.name}")
         plt.tight_layout()
         plt.show()
+
+
+def calculate_iou(box1, box2):
+    """Calculate IoU between two bounding boxes [x1, y1, x2, y2] format """
+    x1 = max(box1[0], box2[0])
+    y1 = max(box1[1], box2[1])
+    x2 = min(box1[2], box2[2])
+    y2 = min(box1[3], box2[3])
+    
+    width = max(0, x2 - x1)
+    height = max(0, y2 - y1)
+    intersection_area = width * height
+    
+    box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
+    box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
+    
+    union_area = box1_area + box2_area - intersection_area
+    
+    if union_area == 0:
+        return 0
+    
+    iou = intersection_area / union_area
+    return iou
+
+
+def calculate_metrics(test_data):
+    """Calculate and print evaluation metrics"""
+    detections = [entry for entry in test_data if entry.get('bbox_pred') is not None]
+    detection_rate = len(detections) / len(test_data) * 100
+    
+    ious = [entry.get('bbox_iou', 0) for entry in test_data if 'bbox_iou' in entry]
+    
+    if ious:
+        avg_iou = sum(ious) / len(ious)
+        iou_50 = sum(1 for iou in ious if iou >= 0.5) / len(ious) * 100
+        iou_75 = sum(1 for iou in ious if iou >= 0.75) / len(ious) * 100
+        
+        print("\nEvaluation Metrics:")
+        print(f"Detection Rate: {detection_rate:.2f}%")
+        print(f"Average IoU: {avg_iou:.4f}")
+        print(f"AP@0.5: {iou_50:.2f}%")
+        print(f"AP@0.75: {iou_75:.2f}%")
+    else:
+        print("\nNo ground truth boxes available for evaluation")
