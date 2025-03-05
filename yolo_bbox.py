@@ -43,7 +43,7 @@ def main():
     for entry in data:
         try:
             filename = entry['filename']
-            bbox = entry['bbox']
+            bbox = entry['bbox_gt']
             
             base_filename = os.path.splitext(filename)[0]
 
