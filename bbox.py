@@ -8,32 +8,30 @@ from PIL import Image
 import matplotlib.patches as patches
 
 def compute_bounding_box(keypoints, margin_factor, image_width, image_height):
-    """Compute a square bounding box around 2D keypoints."""
+    """
+    Compute a square bounding box around 2D keypoints with an optional margin. 
+    Ensures the box stays within the image boundaries while maintaining a square aspect ratio.
+    """
     x_min, y_min = np.min(keypoints, axis=0)
     x_max, y_max = np.max(keypoints, axis=0)
-    
-    bbox_size = max(x_max - x_min, y_max - y_min) * margin_factor
 
+    bbox_size = max(x_max - x_min, y_max - y_min) * margin_factor
     x_center, y_center = (x_max + x_min) / 2, (y_max + y_min) / 2
-    
+
     x_min, y_min = x_center - bbox_size / 2, y_center - bbox_size / 2
     x_max, y_max = x_center + bbox_size / 2, y_center + bbox_size / 2
     
-
     if x_min < 0: x_max, x_min = x_max - x_min, 0
     if y_min < 0: y_max, y_min = y_max - y_min, 0
     if x_max > image_width: x_min, x_max = x_min - (x_max - image_width), image_width
     if y_max > image_height: y_min, y_max = y_min - (y_max - image_height), image_height
     
-
     x_min, y_min = max(0, x_min), max(0, y_min)
     x_max, y_max = min(image_width, x_max), min(image_height, y_max)
     
-
     final_size = min(x_max - x_min, y_max - y_min)
     x_center, y_center = (x_min + x_max) / 2, (y_min + y_max) / 2
     
- 
     x_min = max(0, x_center - final_size / 2)
     x_max = min(image_width, x_min + final_size)
     y_min = max(0, y_center - final_size / 2)
@@ -77,7 +75,6 @@ def main():
             bbox = compute_bounding_box(keypoints, args.margin, IMAGE_WIDTH, IMAGE_HEIGHT)
             entry['bbox_gt'] = bbox
             
-            # Only apply boundary check for visualization
             if args.plot and plot_count < 5:
                 try:
                     img_path = image_folder_path / entry['filename']
