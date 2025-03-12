@@ -35,13 +35,22 @@ def yolo_train(config_path, model_path="yolo11n.pt", epochs=100, batch_size=16, 
 
 
 def yolo_inference(model_path, test_json, image_dir, save_results=False):
-    """Run YOLO inference on test images and add predicted bounding boxes to test.json"""
+    """Run YOLO inference on test images and adds predicted bounding boxes and other parameters to test.json"""
 
     model = YOLO(model_path)
 
     with open(test_json, 'r') as f:
         test_data = json.load(f)
     print(f"Running inference on {len(test_data)} test images...")
+
+    for entry in test_data:
+        try:
+            img_path = Path(image_dir) / entry['filename']
+            with Image.open(img_path) as img:
+                    image_width, image_height = img.size
+                    break
+        except (FileNotFoundError, KeyError):
+                continue
     
     for i, entry in enumerate(test_data):
         filename = entry['filename']
@@ -73,17 +82,44 @@ def yolo_inference(model_path, test_json, image_dir, save_results=False):
 
                 entry['bbox_pred'] = [x1, y1, x2, y2]
                 entry['bbox_pred_conf'] = float(conf_values[best_idx])
-                
+
                 if 'bbox_gt' in entry:
                     gt_box = entry['bbox_gt']
                     iou = calculate_iou(gt_box, [x1, y1, x2, y2])
                     entry['bboxes_iou'] = iou
+
+                width, height = x2 - x1, y2 - y1
+                bbox_size = max(width, height) 
+                x_center, y_center = (x1 + x2) / 2, (y1 + y2) / 2
+
+                x1_sq, y1_sq = int(x_center - bbox_size / 2), int(y_center - bbox_size / 2)
+                x2_sq, y2_sq = int(x_center + bbox_size / 2), int(y_center + bbox_size / 2)
+
+                if x1_sq < 0: x2_sq, x1_sq = x2_sq - x1_sq, 0
+                if y1_sq < 0: y2_sq, y1_sq = y2_sq - y1_sq, 0
+                if x2_sq > image_width: x1_sq, x2_sq = x1_sq - (x2_sq - image_width), image_width
+                if y2_sq > image_height: y1_sq, y2_sq = y1_sq - (y2_sq - image_height), image_height
+
+                x1_sq, y1_sq = max(0, x1_sq), max(0, y1_sq)
+                x2_sq, y2_sq = min(image_width, x2_sq), min(image_height, y2_sq)
+                
+                final_size = min(x2_sq - x1_sq, y2_sq - y1_sq)
+                x_center, y_center = (x1_sq + x2_sq) / 2, (y1_sq + y2_sq) / 2
+
+                x1_sq = max(0, x_center - final_size / 2)
+                x2_sq = min(image_width, x1_sq + final_size)
+                y1_sq = max(0, y_center - final_size / 2)
+                y2_sq = min(image_height, y1_sq + final_size)
+
+                entry['bbox_pred_sq'] = [int(x1_sq), int(y1_sq), int(x2_sq), int(y2_sq)]
+
             else:
                 entry['bbox_pred'] = None
                 entry['bbox_pred_conf'] = 0.0
+                entry['bbox_pred_sq'] = None
                 if 'bbox_gt' in entry:
                     entry['bboxes_iou'] = 0.0
-        
+
         if (i + 1) % 10 == 0 or i == len(test_data) - 1:
             print(f"Processed {i + 1}/{len(test_data)} images")
     
